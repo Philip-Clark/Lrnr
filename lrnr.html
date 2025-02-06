@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lrnr</title>
+  <style>
+    :root {
+      --background-color: #fcfaf9;
+      --text-color: #333333;
+      --color1: #48e5c2;
+      --color2: #f3d3bd;
+      --color3: #5e5e5e;
+      --dark-font-color: #000000;
+      --light-font-color: #ffffff;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+    }
+    .buttons button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      background-color: var(--color1);
+      color: var(--text-color);
+    }
+    .buttons button:hover {
+      background-color: var(--color2);
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: var(--background-color);
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 70%;
+      border-radius: 10px;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-content button {
+      align-self: flex-end;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      background-color: var(--color1);
+      color: var(--text-color);
+      margin-top: 20px;
+    }
+    .modal-content button:hover {
+      background-color: var(--color2);
+    }
+    .tooltip {
+      display: none;
+      position: absolute;
+      background-color: var(--color3);
+      color: #fff;
+      padding: 5px;
+      border-radius: 5px;
+    }
+    .nodes{
+      overflow: visible;
+    }
+    .theme-input {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #888;
+      border-radius: 5px;
+      font-size: 14px;
+      width: 40ch;
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+    }
+
+    #diagram{
+        width: 100vw;
+        height: 100vh;
+    }
+    .prompt-input {
+      padding: 15px;
+      border: 2px solid #888;
+      border-radius: 10px;
+      font-size: 18px;
+      width: calc(100% - 30px);
+      margin-bottom: 10px;
+    }
+    .modal-content p {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .node-foreignObject {
+      width: 100px;
+      height: 100px;
+    }
+
+    .node-text {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      width: 100%;
+      height: 100%;
+      word-wrap: break-word;
+      padding: 5px;
+      box-sizing: border-box;
+      overflow: visible;
+      font-size: 16px;
+    }
+    .data-input {
+      width: 100%;
+      height: 200px;
+      padding: 15px;
+      border: 2px solid #888;
+      border-radius: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+  </style>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <div class="buttons">
+    <button onclick="openPromptGenerator()">Generate Prompt</button>
+    <button onclick="openDataInput()">Enter Response Data</button>
+  </div>
+  <input class="theme-input" type="text" id="themeUrl" placeholder="Enter Coolors.co theme URL" onchange="changeTheme(this.value)" />
+  <div id="Prompt-Modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('Prompt-Modal')">&times;</span>
+      <p>
+        Tell me how 
+        <input id="toolOne" type="text" placeholder="Some Tool" class="prompt-input" />
+        works
+      </p>
+      <button onclick="copyPrompt()">Copy Prompt</button>
+      <span id="copyNotification" style="display: none;">Prompt copied to clipboard!</span>
+    </div>
+  </div>
+  <div id="JSON-Modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('JSON-Modal')">&times;</span>
+      <textarea id="dataInput" class="data-input"></textarea>
+      <button onclick="applyData()">Update Graph</button>
+    </div>
+  </div>
+  <svg id="diagram"></svg>
+  <div class="tooltip" id="tooltip"></div>
+  <script>
+    let currentData = '';
+
+    function openPromptGenerator() {
+      document.getElementById('Prompt-Modal').style.display = "flex";
+    }
+
+    function openDataInput() {
+      document.getElementById('JSON-Modal').style.display = "flex";
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = "none";
+    }
+
+    function copyPrompt() {
+      const toolOne = document.getElementById('toolOne').value;
+      const aiPrompt = `Create a diagram that shows how ${toolOne} works. Use the graph to show how features relate to each other. Be in depth, give multiple children to base level features, make usefule Multiple nodes can connect to multiple others. Use JSON format similar to: { "nodes": [ { "id": "{node1}", "group": {groupNumber}, "info": "{description}" },... ], "links": [ { "source": "{Node1}", "target": "{Node2}", "value": {Value} }, ... ]}; Node one should have an info of the tool name. Add this Explanation in the response: "Copy and paste this data into the 'Source' field of [Lrnr](https://philip-clark.github.io/lrnr/) for a diagram"`;
+      navigator.clipboard.writeText(aiPrompt);
+      document.getElementById('copyNotification').style.display = 'inline';
+      setTimeout(() => {
+        document.getElementById('copyNotification').style.display = 'none';
+        closeModal('Prompt-Modal');
+      }, 1000);
+    }
+
+    function applyData() {
+      const dataInput = document.getElementById('dataInput').value;
+      closeModal('JSON-Modal');
+      try {
+        const data = JSON.parse(dataInput);
+        currentData = data;
+        localStorage.setItem('graphData', JSON.stringify(currentData));
+        updateGraph(currentData);
+      } catch (error) {
+        alert('Invalid JSON format');
+      }
+    }
+
+    function updateGraph(data) {
+      const nodes = data.nodes;
+      const links = data.links;
+
+
+      const color = d3.scaleOrdinal()
+        .domain(nodes.map(d => d.id))
+        .range([getComputedStyle(document.documentElement).getPropertyValue('--color1'), getComputedStyle(document.documentElement).getPropertyValue('--color2'), getComputedStyle(document.documentElement).getPropertyValue('--color3')]);
+
+      const svg = d3.select("#diagram"),
+            width = window.innerWidth,
+            height = window.innerHeight;
+
+      svg.selectAll("*").remove();
+
+      const container = svg.append("g");
+
+      const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(250)) // Increase distance between nodes
+        .force("charge", d3.forceManyBody().strength(-300))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collision", d3.forceCollide().radius(d => Math.max(20, d.id.length * 3 +90))); // Increase collision radius
+
+      const link = container.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(links)
+        .enter().append("line")
+        .attr("stroke-width", 4)
+        .attr("stroke", "#999");
+
+      const node = container.append("g")
+        .attr("class", "nodes")
+        .selectAll("g")
+        .data(nodes)
+        .enter().append("g")
+        .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
+
+      node.append("a")
+        .attr("target", "_blank")
+        .attr("class", "node-link")
+        .append("circle")
+        .attr("r", function(d) {
+          const textLength = d.info.length;
+          return Math.max(80, textLength + 20); // Make dots smaller
+        })
+        .attr("fill", d => color(d.id))
+        .on("mouseover", mouseover)
+        .on("mouseout", mouseout);
+
+      node.append("foreignObject")
+        .attr("class", "node-foreignObject")
+        .attr("x", -50)
+        .attr("y", -50)
+        .append("xhtml:a")
+        .attr("xlink:href", d => d.link)
+        .attr("target", "_blank")
+        .attr("class", "node-link")
+        .append("xhtml:div")
+        .attr("class", "node-text")
+        .style("color", d => getContrastYIQ(color(d.id)))
+        .text(d => d.info);
+
+      simulation
+        .nodes(nodes)
+        .on("tick", ticked);
+
+      simulation.force("link")
+        .links(links);
+
+      function ticked() {
+        link
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+
+        node
+          .attr("transform", d => `translate(${Math.max(100, Math.min(width - 20, d.x))},${Math.max(100, Math.min(height - 20, d.y))})`);
+      }
+
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+
+      function dragged(event, d) {
+        d.fx = Math.max(20, Math.min(width - 20, event.x));
+        d.fy = Math.max(20, Math.min(height - 20, event.y));
+      }
+
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+
+      function mouseover(event, d) {
+        const tooltip = d3.select("#tooltip");
+        tooltip.transition()
+          .duration(200)
+          .style("opacity", .9);
+        tooltip.html(`<strong>${d.id}</strong><br>${d.info}`)
+          .style("left", (event.pageX + 5) + "px")
+          .style("top", (event.pageY - 28) + "px")
+          .style("background-color", color(d.id));
+      }
+
+      function mouseout(event, d) {
+        const tooltip = d3.select("#tooltip");
+        tooltip.transition()
+          .duration(500)
+          .style("opacity", 0);
+      }
+    }
+
+    function changeTheme(url) {
+      const colors = url.split('/').pop().split('-').map(color => `#${color}`);
+      document.documentElement.style.setProperty('--background-color', colors[0]);
+      document.documentElement.style.setProperty('--color1', colors[1]);
+      document.documentElement.style.setProperty('--color2', colors[2]);
+      document.documentElement.style.setProperty('--color3', colors[3]);
+      document.documentElement.style.setProperty('--text-color', colors[4]);
+      localStorage.setItem('themeUrl', url);
+      updateGraph(currentData); // Update graph to match new theme
+    }
+
+    window.onload = function() {
+      const savedThemeUrl = localStorage.getItem('themeUrl');
+      if (savedThemeUrl) {
+        changeTheme(savedThemeUrl);
+        document.getElementById('themeUrl').value = savedThemeUrl;
+      } else {
+        changeTheme('https://coolors.co/fcfaf9-48e5c2-333333-f3d3bd-5e5e5e');
+      }
+
+      const savedGraphData = localStorage.getItem('graphData');
+      if (savedGraphData) {
+        currentData = JSON.parse(savedGraphData);
+        updateGraph(currentData);
+      } else {
+        currentData = initialData;
+        updateGraph(currentData);
+      }
+    }
+
+    function getContrastYIQ(hexcolor) {
+      hexcolor = hexcolor.replace("#", "");
+      const r = parseInt(hexcolor.substr(0, 2), 16);
+      const g = parseInt(hexcolor.substr(2, 2), 16);
+      const b = parseInt(hexcolor.substr(4, 2), 16);
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      return yiq >= 128 ? getComputedStyle(document.documentElement).getPropertyValue('--dark-font-color') : getComputedStyle(document.documentElement).getPropertyValue('--light-font-color');
+    }
+
+    const initialData = {
+      nodes: [
+        { "id": "Node 1", "info": "Use this Tool to Explore technologies", "link": "" },
+        { "id": "Node 2", "info": "Start by Clicking Generate Prompt", "link": "" },
+        { "id": "Node 3", "info": "Enter technology you want to learn about", "link": "" },
+        { "id": "Node 5", "info": "Click Generate Prompt", "link": "" },
+        { "id": "Node 6", "info": "Paste the Prompt into any AI chat", "link": "" },
+        { "id": "Node 7", "info": "Copy the resulting code", "link": "" },
+        { "id": "Node 8", "info": "Paste the code in the Response Data section here", "link": "" }
+      ],
+      links: [
+        { "source": "Node 1", "target": "Node 2", "value": 1 },
+        { "source": "Node 2", "target": "Node 3", "value": 1 },
+        { "source": "Node 3", "target": "Node 5", "value": 1 },
+        { "source": "Node 5", "target": "Node 6", "value": 1 },
+        { "source": "Node 6", "target": "Node 7", "value": 1 },
+        { "source": "Node 7", "target": "Node 8", "value": 1 },
+        { "source": "Node 8", "target": "Node 8", "value": 1 }
+      ]
+    };
+    currentData = initialData;
+
+  </script>
+</body>
+</html>
+
+
+
+
+
+
