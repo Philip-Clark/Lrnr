@@ -126,6 +126,7 @@
       width: 100px;
       height: 100px;
     }
+
     .node-text {
       display: flex;
       justify-content: center;
@@ -195,7 +196,7 @@
 
     function copyPrompt() {
       const toolOne = document.getElementById('toolOne').value;
-      const aiPrompt = `Create a diagram that shows how ${toolOne} works. Use the graph to show how features relate to each other. Be in depth, give multiple children to base level features, make usefule Multiple nodes can connect to multiple others. Use JSON format similar to: { "nodes": [ { "id": "{node1}", "group": {groupNumber}, "info": "{description}" },... ], "links": [ { "source": "{Node1}", "target": "{Node2}", "value": {Value} }, ... ]}; Add this Explanation in the response: "Copy and paste this data into the 'Source' field of [Lrnr](https://philip-clark.github.io/lrnr/) for a diagram"`;
+      const aiPrompt = `Create a diagram that shows how ${toolOne} works. Use the graph to show how features relate to each other. Be in depth, give multiple children to base level features, make usefule Multiple nodes can connect to multiple others. Use JSON format similar to: { "nodes": [ { "id": "{node1}", "group": {groupNumber}, "info": "{description}" },... ], "links": [ { "source": "{Node1}", "target": "{Node2}", "value": {Value} }, ... ]}; Node one should have an info of the tool name. Add this Explanation in the response: "Copy and paste this data into the 'Source' field of [Lrnr](https://philip-clark.github.io/lrnr/) for a diagram"`;
       navigator.clipboard.writeText(aiPrompt);
       document.getElementById('copyNotification').style.display = 'inline';
       setTimeout(() => {
